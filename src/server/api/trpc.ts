@@ -6,7 +6,7 @@
  * TL;DR - This is where all the tRPC server stuff is created and plugged in. The pieces you will
  * need to use are documented accordingly near the end.
  */
-import { initTRPC } from "@trpc/server";
+import { TRPCError, initTRPC } from "@trpc/server";
 import { type NextRequest } from "next/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
@@ -21,6 +21,7 @@ import { ZodError } from "zod";
 
 interface CreateContextOptions {
   headers: Headers;
+  request?: NextRequest;
 }
 
 /**
@@ -35,7 +36,7 @@ interface CreateContextOptions {
  */
 export const createInnerTRPCContext = (opts: CreateContextOptions) => {
   return {
-    headers: opts.headers,
+    ...opts,
   };
 };
 
@@ -50,6 +51,7 @@ export const createTRPCContext = (opts: { req: NextRequest }) => {
 
   return createInnerTRPCContext({
     headers: opts.req.headers,
+    request: opts.req,
   });
 };
 
@@ -97,3 +99,18 @@ export const createTRPCRouter = t.router;
  * are logged in.
  */
 export const publicProcedure = t.procedure;
+
+export const fdProcedure = t.procedure.use(async (opts) => {
+  if (!opts.ctx.request) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "FormData procedure requires the request on context",
+    });
+  }
+  const fd = await opts.ctx.request.formData();
+  const asObject = Object.fromEntries(fd.entries());
+
+  return opts.next({
+    rawInput: asObject,
+  });
+});

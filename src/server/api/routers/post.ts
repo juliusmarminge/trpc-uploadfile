@@ -1,6 +1,11 @@
 import { z } from "zod";
+import { zfd } from "zod-form-data";
 
-import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import {
+  createTRPCRouter,
+  fdProcedure,
+  publicProcedure,
+} from "~/server/api/trpc";
 
 let post = {
   id: 1,
@@ -16,11 +21,18 @@ export const postRouter = createTRPCRouter({
       };
     }),
 
-  create: publicProcedure
-    .input(z.object({ name: z.string().min(1) }))
+  create: fdProcedure
+    .input(
+      zfd.formData({
+        name: zfd.text(z.string().min(1)),
+        image: zfd.file(),
+      }),
+    )
     .mutation(async ({ input }) => {
       // simulate a slow db call
       await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      console.log(input.image);
 
       post = { id: post.id + 1, name: input.name };
       return post;
